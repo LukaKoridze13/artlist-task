@@ -9,6 +9,7 @@ services:
       - NODE_ENV=development
       - PORT=4000
       - MONGODB_URI=${MONGODB_URI}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
     volumes:
       - ./backend:/app
       - /app/node_modules

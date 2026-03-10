@@ -4,6 +4,8 @@ import "./globals.css"
 import { cn } from "@/lib/utils"
 import { Providers } from "./providers"
 import { Header } from "./header"
+import { Sidebar } from "@/components/sidebar"
+import { DashboardDataProvider } from "@/components/DashboardDataProvider"
 
 const fontSans = Geist({
   subsets: ["latin"],
@@ -36,7 +38,12 @@ export default function RootLayout({
           <div className="flex min-h-svh flex-col items-center bg-background">
             <div className="flex w-full max-w-[1440px] flex-1 flex-col px-4">
               <Header />
-              <main className="flex-1">{children}</main>
+              <DashboardDataProvider>
+                <div className="flex flex-1 gap-6 py-4">
+                  <Sidebar />
+                  <main className="flex-1">{children}</main>
+                </div>
+              </DashboardDataProvider>
             </div>
           </div>
         </Providers>
