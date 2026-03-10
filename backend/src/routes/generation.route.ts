@@ -1,6 +1,7 @@
 import { Router } from "express";
 import {
   createGeneration,
+  enhancePrompt,
   listGenerations,
   listRecentGenerations,
 } from "../controllers/generation.controller";
@@ -9,6 +10,7 @@ import GenerationModel from "../models/generation.model";
 const router = Router();
 
 router.post("/", createGeneration);
+router.post("/enhance", enhancePrompt);
 router.get("/", listGenerations);
 router.get("/recent", listRecentGenerations);
 router.delete("/:id", async (req, res) => {

@@ -20,6 +20,61 @@ function countWords(text: string): number {
   return text.trim().split(/\s+/).filter(Boolean).length;
 }
 
+const ENHANCED_PROMPT_MAX_LENGTH = 400;
+
+export async function enhancePrompt(req: Request, res: Response) {
+  try {
+    const { prompt, type } = req.body as {
+      prompt?: string;
+      type?: GenerationType;
+    };
+
+    if (!prompt || typeof prompt !== "string") {
+      return res.status(400).json({ message: "Prompt is required" });
+    }
+    if (!type || (type !== "text" && type !== "image")) {
+      return res
+        .status(400)
+        .json({ message: "type must be either 'text' or 'image'" });
+    }
+
+    if (!process.env.OPENAI_API_KEY) {
+      return res
+        .status(503)
+        .json({ message: "Prompt enhancement is not configured" });
+    }
+
+    const outputKind = type === "image" ? "image" : "text";
+    const systemContent = `You are a prompt enhancement assistant. The user is writing a prompt for an AI that will generate ${outputKind}.
+
+Rules:
+- Enhance the user's prompt to be clearer, more descriptive, and more effective for ${outputKind} generation.
+- Return ONLY the enhanced prompt. No explanations, no comments, no markdown, no quotes. Plain raw text only.
+- The enhanced prompt must be at most ${ENHANCED_PROMPT_MAX_LENGTH} characters. If needed, shorten or refine to fit while keeping the meaning.
+- Keep the same language as the user's prompt unless they mixed languages.
+- Do not add preamble like "Enhanced prompt:" or similar—output nothing but the prompt itself.`;
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: systemContent },
+        { role: "user", content: prompt.trim() },
+      ],
+      max_tokens: 200,
+    });
+
+    const raw =
+      completion.choices?.[0]?.message?.content?.trim() ?? "";
+    const enhanced = raw.slice(0, ENHANCED_PROMPT_MAX_LENGTH);
+
+    return res.status(200).json({ prompt: enhanced });
+  } catch (error: any) {
+    return res.status(500).json({
+      message: error?.message ?? "Failed to enhance prompt",
+    });
+  }
+}
+
 export async function createGeneration(req: Request, res: Response) {
   try {
     const { type, prompt, imageSize, socketId } = req.body as {

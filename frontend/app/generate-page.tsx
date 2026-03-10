@@ -1,10 +1,16 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
+import { Sparkles } from "lucide-react"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import apiClient from "@/lib/apiClient"
 import { getSocket } from "@/lib/socketClient"
-import { useGenerationStore, type Generation, type GenerationType } from "@/lib/generationsStore"
+import {
+  useGenerationStore,
+  type Generation,
+  type GenerationType,
+} from "@/lib/generationsStore"
 import { useGenerationSocket } from "@/hooks/useGenerationSocket"
 
 const RECENT_WINDOW_MINUTES = 30
@@ -17,10 +23,20 @@ export function GeneratePage() {
   const [imageSize, setImageSize] = useState<string>("auto")
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isEnhancing, setIsEnhancing] = useState(false)
 
   const generations = useGenerationStore((s) => s.generations)
   const upsertOne = useGenerationStore((s) => s.upsertOne)
   const removeOne = useGenerationStore((s) => s.removeOne)
+
+  const [now, setNow] = useState(() => Date.now())
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      setNow(Date.now())
+    }, 1000)
+    return () => window.clearInterval(id)
+  }, [])
 
   const wordCount = useMemo(
     () => prompt.trim().split(/\s+/).filter(Boolean).length,
@@ -31,7 +47,10 @@ export function GeneratePage() {
     const since = Date.now() - RECENT_WINDOW_MINUTES * 60 * 1000
     return Object.values(generations)
       .filter((g) => new Date(g.createdAt).getTime() >= since)
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      )
   }, [generations])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -81,14 +100,39 @@ export function GeneratePage() {
     }
   }
 
+  const handleEnhancePrompt = async () => {
+    const trimmed = prompt.trim()
+    if (!trimmed) {
+      toast.error("Enter a prompt first to enhance it.")
+      return
+    }
+    setIsEnhancing(true)
+    setError(null)
+    try {
+      const { data } = await apiClient.post<{ prompt: string }>(
+        "/generations/enhance",
+        { prompt: trimmed, type }
+      )
+      setPrompt(data.prompt ?? trimmed)
+      toast.success("Prompt enhanced.")
+    } catch (err: any) {
+      const message =
+        err?.response?.data?.message ?? "Failed to enhance prompt."
+      setError(message)
+      toast.error(message)
+    } finally {
+      setIsEnhancing(false)
+    }
+  }
+
   return (
-    <div className="flex flex-col md:flex-row gap-6">
+    <div className="flex flex-col gap-6 md:flex-row">
       <section className="flex-1 space-y-4">
         <div className="space-y-1">
           <h1 className="text-xl font-semibold">Generate</h1>
           <p className="text-sm text-muted-foreground">
-            Choose a type and write a prompt. Jobs run asynchronously so you
-            can queue multiple generations.
+            Choose a type and write a prompt. Jobs run asynchronously so you can
+            queue multiple generations.
           </p>
         </div>
         <form className="space-y-4" onSubmit={handleSubmit}>
@@ -125,7 +169,7 @@ export function GeneratePage() {
                 id="image-size"
                 value={imageSize}
                 onChange={(e) => setImageSize(e.target.value)}
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
               >
                 <option value="auto">Auto</option>
                 <option value="1024x1024">1024 x 1024</option>
@@ -143,11 +187,22 @@ export function GeneratePage() {
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               rows={6}
-              className="w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
               placeholder="Describe what you want to generate..."
             />
-            <div className="flex justify-between text-xs text-muted-foreground">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
               <span>{wordCount} / 500 words</span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={isEnhancing || !prompt.trim()}
+                onClick={handleEnhancePrompt}
+                className="h-8 gap-1.5 border-purple-600! bg-purple-600/50! text-xs text-white! disabled:opacity-50!"
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                {isEnhancing ? "Enhancing…" : "Enhance prompt"}
+              </Button>
             </div>
           </div>
           {error && <p className="text-sm text-destructive">{error}</p>}
@@ -157,9 +212,9 @@ export function GeneratePage() {
         </form>
       </section>
 
-      <aside className="md:w-80 w-full shrink-0 space-y-3 rounded-lg border bg-background p-4 text-sm">
+      <aside className="w-full shrink-0 space-y-3 rounded-lg border bg-background p-4 text-sm md:w-80">
         <h2 className="font-semibold">Ongoing jobs</h2>
-        <div className="space-y-2 max-h-[480px] overflow-y-auto">
+        <div className="max-h-[480px] space-y-2 overflow-y-auto">
           {recentJobs.length === 0 && (
             <p className="text-xs text-muted-foreground">
               No jobs yet. Start a generation to see it here.
@@ -177,6 +232,14 @@ export function GeneratePage() {
               const ms = completed.getTime() - started.getTime()
               const seconds = Math.max(Math.round(ms / 1000), 1)
               durationLabel = `${seconds}s`
+            } else if (started) {
+              const ms = now - started.getTime()
+              const seconds = Math.max(Math.floor(ms / 1000), 0)
+              durationLabel = `${seconds}s`
+            } else if (!completed) {
+              const ms = now - created.getTime()
+              const seconds = Math.max(Math.floor(ms / 1000), 0)
+              durationLabel = `${seconds}s`
             }
 
             return (
@@ -185,8 +248,8 @@ export function GeneratePage() {
                 className="rounded-md border px-3 py-2 text-xs"
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="font-medium truncate">{job.name}</span>
-                  <span className="uppercase text-[10px] text-muted-foreground">
+                  <span className="truncate font-medium">{job.name}</span>
+                  <span className="text-[10px] text-muted-foreground uppercase">
                     {job.type}
                   </span>
                 </div>
@@ -196,14 +259,14 @@ export function GeneratePage() {
                       job.status === "completed"
                         ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
                         : job.status === "failed"
-                        ? "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300"
-                        : "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
+                          ? "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300"
+                          : "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
                     }`}
                   >
                     {job.status}
                   </span>
                   <span className="text-[10px] text-muted-foreground">
-                    {durationLabel || created.toLocaleTimeString()}
+                    {durationLabel}
                   </span>
                 </div>
               </div>

@@ -3,9 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google"
 import "./globals.css"
 import { cn } from "@/lib/utils"
 import { Providers } from "./providers"
-import { Header } from "./header"
-import { Sidebar } from "@/components/sidebar"
-import { DashboardDataProvider } from "@/components/DashboardDataProvider"
+import { AppShell } from "./AppShell"
 
 const fontSans = Geist({
   subsets: ["latin"],
@@ -35,17 +33,7 @@ export default function RootLayout({
     >
       <body suppressHydrationWarning>
         <Providers>
-          <div className="min-h-svh bg-background">
-            <Header />
-            <div className="mx-auto w-full max-w-[1440px] px-4 pt-14">
-              <DashboardDataProvider>
-                <div className="flex flex-1 gap-6 py-4">
-                  <Sidebar />
-                  <main className="min-w-0 flex-1 lg:ml-[220px]">{children}</main>
-                </div>
-              </DashboardDataProvider>
-            </div>
-          </div>
+          <AppShell>{children}</AppShell>
         </Providers>
       </body>
     </html>
