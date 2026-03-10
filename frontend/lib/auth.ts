@@ -19,7 +19,7 @@ export const authOptions: NextAuthOptions = {
           return null
         }
 
-        try {
+          try {
           const { data: user } = await axios.post(
             backendApiUrl + "/auth/login",
             {
