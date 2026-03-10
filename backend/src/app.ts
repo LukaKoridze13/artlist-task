@@ -9,7 +9,7 @@ export function createApp(): Application {
 
   app.use(
     cors({
-      origin: "http://localhost:3000",
+      origin: process.env.NEXTAUTH_URL || "http://localhost:3000",
       credentials: true,
     })
   );

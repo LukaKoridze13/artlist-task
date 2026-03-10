@@ -4,7 +4,7 @@ import GoogleProvider from "next-auth/providers/google"
 import axios from "axios"
 
 const backendApiUrl =
-  process.env.BACKEND_INTERNAL_API_URL || "http://localhost:3000/api"
+  process.env.NEXT_PUBLIC_INTERNAL_API_URL || "http://localhost:3000/api"
 
 const backendClient = axios.create({
   baseURL: backendApiUrl,

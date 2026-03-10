@@ -7,7 +7,7 @@ let ioInstance: SocketIOServer | null = null;
 export function initSocketServer(httpServer: HttpServer): SocketIOServer {
   const io = new SocketIOServer(httpServer, {
     cors: {
-      origin: process.env.CLIENT_ORIGIN || "http://localhost:3000",
+      origin: process.env.NEXTAUTH_URL || "http://localhost:3000",
       methods: ["GET", "POST"],
     },
   });
