@@ -61,16 +61,37 @@ export default function HistoryPage() {
           All past generations with timing and status details.
         </p>
       </div>
+      {totalPages > 1 && (
+        <div className="flex items-center justify-end gap-2 text-xs">
+          <button
+            type="button"
+            disabled={page <= 1}
+            onClick={() => handlePageChange(page - 1)}
+            className="rounded-md border px-2 py-1 disabled:opacity-50"
+          >
+            Previous
+          </button>
+          <span className="text-muted-foreground">
+            Page {page} of {totalPages}
+          </span>
+          <button
+            type="button"
+            disabled={page >= totalPages}
+            onClick={() => handlePageChange(page + 1)}
+            className="rounded-md border px-2 py-1 disabled:opacity-50"
+          >
+            Next
+          </button>
+        </div>
+      )}
       <div className="space-y-2">
         {(page === 1 && items === undefined) ||
-          (isLoading && displayItems.length === 0) ? (
+        (isLoading && displayItems.length === 0) ? (
           <p className="text-sm">Loading…</p>
         ) : null}
         {displayItems.map((item) => {
           const created = new Date(item.createdAt)
-          const started = item.startedAt
-            ? new Date(item.startedAt)
-            : undefined
+          const started = item.startedAt ? new Date(item.startedAt) : undefined
           const completed = item.completedAt
             ? new Date(item.completedAt)
             : undefined
@@ -89,13 +110,17 @@ export default function HistoryPage() {
             >
               <div className="flex items-center justify-between gap-2">
                 <div className="flex flex-col gap-0.5">
-                  <h2 className="truncate font-medium">{item.name}</h2>
+                  <h2 className="truncate font-medium">
+                    {item.name.length > 30
+                      ? item.name.slice(0, 30) + "…"
+                      : item.name}
+                  </h2>
                   <p className="line-clamp-1 text-xs text-muted-foreground">
                     {item.prompt}
                   </p>
                 </div>
                 <div className="flex flex-col items-end gap-1">
-                  <span className="text-[11px] uppercase text-muted-foreground">
+                  <span className="text-[11px] text-muted-foreground uppercase">
                     {item.type}
                   </span>
                   <span
@@ -103,8 +128,8 @@ export default function HistoryPage() {
                       item.status === "completed"
                         ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
                         : item.status === "failed"
-                        ? "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300"
-                        : "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
+                          ? "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300"
+                          : "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
                     }`}
                   >
                     {item.status}
@@ -137,29 +162,6 @@ export default function HistoryPage() {
             </p>
           )}
       </div>
-      {totalPages > 1 && (
-        <div className="flex items-center justify-end gap-2 text-xs">
-          <button
-            type="button"
-            disabled={page <= 1}
-            onClick={() => handlePageChange(page - 1)}
-            className="rounded-md border px-2 py-1 disabled:opacity-50"
-          >
-            Previous
-          </button>
-          <span className="text-muted-foreground">
-            Page {page} of {totalPages}
-          </span>
-          <button
-            type="button"
-            disabled={page >= totalPages}
-            onClick={() => handlePageChange(page + 1)}
-            className="rounded-md border px-2 py-1 disabled:opacity-50"
-          >
-            Next
-          </button>
-        </div>
-      )}
     </div>
   )
 }

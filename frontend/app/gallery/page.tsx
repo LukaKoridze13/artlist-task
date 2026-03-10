@@ -94,7 +94,9 @@ export default function GalleryPage() {
             className="flex flex-col gap-2 rounded-lg border bg-background p-3 text-sm"
           >
             <div className="flex items-center justify-between gap-2">
-              <h2 className="truncate font-medium">{item.name}</h2>
+              <h2 className="truncate font-medium">
+                {item.name.length > 30 ? item.name.slice(0, 30) + "…" : item.name}
+              </h2>
               <div className="flex items-center gap-2">
                 <span className="text-[10px] uppercase text-muted-foreground">
                   {item.type}
@@ -115,11 +117,12 @@ export default function GalleryPage() {
               </div>
             </div>
             {item.type === "image" && item.resultImageUrl ? (
-              <div className="flex h-[500px] w-full items-center justify-center">
+              <div className="flex h-[300px] md:h-[500px] w-full items-center justify-center">
                 <img
                   src={item.resultImageUrl}
                   alt={item.name}
-                  className="mt-1 max-h-[500px] max-w-[500px] rounded-md object-cover"
+                  className="mt-1 h-full w-full max-h-[500px] md:max-h-[500px] max-w-full md:max-w-[500px] rounded-md object-contain"
+                  style={{ display: "block" }}
                 />
               </div>
             ) : (

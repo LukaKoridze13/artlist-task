@@ -82,7 +82,7 @@ export function GeneratePage() {
   }
 
   return (
-    <div className="flex gap-6">
+    <div className="flex flex-col md:flex-row gap-6">
       <section className="flex-1 space-y-4">
         <div className="space-y-1">
           <h1 className="text-xl font-semibold">Generate</h1>
@@ -157,7 +157,7 @@ export function GeneratePage() {
         </form>
       </section>
 
-      <aside className="w-80 shrink-0 space-y-3 rounded-lg border bg-background p-4 text-sm">
+      <aside className="md:w-80 w-full shrink-0 space-y-3 rounded-lg border bg-background p-4 text-sm">
         <h2 className="font-semibold">Ongoing jobs</h2>
         <div className="space-y-2 max-h-[480px] overflow-y-auto">
           {recentJobs.length === 0 && (

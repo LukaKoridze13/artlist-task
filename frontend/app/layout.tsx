@@ -35,13 +35,13 @@ export default function RootLayout({
     >
       <body suppressHydrationWarning>
         <Providers>
-          <div className="flex min-h-svh flex-col items-center bg-background">
-            <div className="flex w-full max-w-[1440px] flex-1 flex-col px-4">
-              <Header />
+          <div className="min-h-svh bg-background">
+            <Header />
+            <div className="mx-auto w-full max-w-[1440px] px-4 pt-14">
               <DashboardDataProvider>
                 <div className="flex flex-1 gap-6 py-4">
                   <Sidebar />
-                  <main className="flex-1">{children}</main>
+                  <main className="min-w-0 flex-1 lg:ml-[220px]">{children}</main>
                 </div>
               </DashboardDataProvider>
             </div>

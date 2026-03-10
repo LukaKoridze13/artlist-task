@@ -14,7 +14,7 @@ export function Sidebar() {
   const pathname = usePathname()
 
   return (
-    <aside className="w-48 shrink-0 border-r pr-4">
+    <aside className="fixed top-15 hidden w-48 shrink-0 overflow-y-auto border-r pr-4 md:block">
       <nav className="flex flex-col gap-1 py-4 text-sm">
         {items.map((item) => {
           const active =
@@ -41,4 +41,3 @@ export function Sidebar() {
     </aside>
   )
 }
-

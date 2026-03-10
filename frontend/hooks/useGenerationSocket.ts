@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef } from "react"
-import { toast } from "react-toastify"
+import { toast } from "sonner"
 import { getSocket } from "@/lib/socketClient"
 import { useGenerationStore, type Generation } from "@/lib/generationsStore"
 import { useGalleryStore } from "@/lib/galleryStore"
