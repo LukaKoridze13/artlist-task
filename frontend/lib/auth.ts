@@ -4,12 +4,7 @@ import GoogleProvider from "next-auth/providers/google"
 import axios from "axios"
 
 const backendApiUrl =
-  process.env.NEXT_PUBLIC_INTERNAL_API_URL || "http://localhost:3000/api"
-
-const backendClient = axios.create({
-  baseURL: backendApiUrl,
-  headers: { "Content-Type": "application/json" },
-})
+  process.env.DOCKER_BACKEND_URL || process.env.NEXT_PUBLIC_API_URL
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -25,10 +20,13 @@ export const authOptions: NextAuthOptions = {
         }
 
         try {
-          const { data: user } = await backendClient.post("/auth/login", {
-            username: credentials.username,
-            password: credentials.password,
-          })
+          const { data: user } = await axios.post(
+            backendApiUrl + "/auth/login",
+            {
+              username: credentials.username,
+              password: credentials.password,
+            }
+          )
 
           return {
             id: user.id,
@@ -59,7 +57,7 @@ export const authOptions: NextAuthOptions = {
             : undefined
 
         try {
-          await backendClient.post("/auth/oauth", {
+          await axios.post(backendApiUrl + "/auth/oauth", {
             email,
             username,
             provider: "google",
@@ -82,4 +80,3 @@ export const authOptions: NextAuthOptions = {
 }
 
 export const authHandler = NextAuth(authOptions)
-

@@ -58,7 +58,6 @@ export async function registerUser(req: Request, res: Response) {
       createdAt: user.createdAt,
     });
   } catch (error) {
-    console.log(error)
     return res.status(500).json({ message: "Failed to register user" });
   }
 }
