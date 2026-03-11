@@ -31,6 +31,8 @@ export function useGenerationSocket() {
           `Generation "${payload.name}" failed${payload.errorMessage ? `: ${payload.errorMessage}` : "."}`
         )
         historyPrepend(payload)
+      } else if (payload.status === "cancelled" && prevStatus !== "cancelled") {
+        historyPrepend(payload)
       }
     }
 

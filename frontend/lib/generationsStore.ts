@@ -1,6 +1,11 @@
 import { create } from "zustand"
 
-export type GenerationStatus = "pending" | "generating" | "completed" | "failed"
+export type GenerationStatus =
+  | "pending"
+  | "generating"
+  | "completed"
+  | "failed"
+  | "cancelled"
 export type GenerationType = "text" | "image"
 
 export interface Generation {

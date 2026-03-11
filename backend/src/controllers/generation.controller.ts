@@ -159,7 +159,8 @@ export async function listGenerations(req: Request, res: Response) {
       status === "pending" ||
       status === "generating" ||
       status === "completed" ||
-      status === "failed"
+      status === "failed" ||
+      status === "cancelled"
     ) {
       query.status = status;
     }
@@ -232,6 +233,59 @@ function emitToSocket(socketId: string | undefined, payload: Record<string, unkn
   }
 }
 
+/** In-flight generation id -> AbortController so cancel can abort OpenAI requests */
+const abortControllers = new Map<string, AbortController>();
+
+function getAbortController(id: string): AbortController {
+  let ac = abortControllers.get(id);
+  if (!ac) {
+    ac = new AbortController();
+    abortControllers.set(id, ac);
+  }
+  return ac;
+}
+
+function clearAbortController(id: string) {
+  abortControllers.delete(id);
+}
+
+export async function cancelGeneration(req: Request, res: Response) {
+  try {
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    if (!id) {
+      return res.status(400).json({ message: "Generation id is required" });
+    }
+    const generation = await GenerationModel.findById(id);
+    if (!generation) {
+      return res.status(404).json({ message: "Generation not found" });
+    }
+    if (generation.status !== "pending" && generation.status !== "generating") {
+      return res
+        .status(400)
+        .json({ message: "Only pending or generating jobs can be cancelled" });
+    }
+    generation.status = "cancelled";
+    generation.completedAt = new Date();
+    await generation.save();
+
+    const ac = abortControllers.get(id);
+    if (ac) {
+      ac.abort();
+      clearAbortController(id);
+    }
+
+    emitToSocket(generation.socketId, toGenerationPayload(generation));
+    return res.status(200).json(generation);
+  } catch (error) {
+    return res.status(500).json({ message: "Failed to cancel generation" });
+  }
+}
+
+async function isCancelled(id: string): Promise<boolean> {
+  const doc = await GenerationModel.findById(id).select("status").lean().exec();
+  return (doc as { status?: string } | null)?.status === "cancelled";
+}
+
 async function processGeneration(id: string) {
   const generation = await GenerationModel.findById(id);
   if (!generation) return;
@@ -245,6 +299,8 @@ async function processGeneration(id: string) {
     return;
   }
 
+  getAbortController(id); // register so cancel can abort (SDK may use signal in future)
+
   generation.status = "generating";
   generation.startedAt = new Date();
   await generation.save();
@@ -252,30 +308,66 @@ async function processGeneration(id: string) {
 
   try {
     if (generation.type === "text") {
+      const textInstruction =
+        `You are a text generation API. Reply with only a single JSON object, no markdown or extra text. Format: {"status":"success"|"failed","text":"..."}.
+Rules: If the user prompt is invalid for text generation (too short, too vague, unclear what to generate), set status to "failed" and set text to a very short user-friendly error message (e.g. "Invalid prompt, too short"). Otherwise generate the requested text, set status to "success", and put the generated text in text. Keep error messages in "text" as short as possible but user-friendly.
+User prompt: ` +
+        generation.prompt;
+
       const response = await openai.responses.create({
         model: "gpt-4o-mini",
-        input: generation.prompt,
+        input: textInstruction,
       });
 
+      if (await isCancelled(id)) {
+        clearAbortController(id);
+        return;
+      }
+
       const firstOutput = response.output?.[0];
-      let output = "";
+      let rawText = "";
       if (
         firstOutput &&
         "content" in firstOutput &&
         Array.isArray((firstOutput as any).content) &&
         (firstOutput as any).content[0]?.type === "output_text"
       ) {
-        output = (firstOutput as any).content[0].text || "";
+        rawText = (firstOutput as any).content[0].text?.trim() || "";
       }
 
-      generation.resultText = output || "No content generated.";
+      let parsed: { status?: string; text?: string } = {};
+      try {
+        const cleaned = rawText.replace(/^```json\s*|\s*```$/g, "").trim();
+        parsed = JSON.parse(cleaned) as { status?: string; text?: string };
+      } catch {
+        parsed = { status: "failed", text: "Invalid response from AI" };
+      }
 
-      // Ask AI for a short name/title for text generations
+      const aiStatus = (parsed.status || "").toLowerCase();
+      const aiMessage = typeof parsed.text === "string" ? parsed.text.trim() : "";
+
+      if (aiStatus === "failed") {
+        generation.status = "failed";
+        generation.errorMessage = aiMessage || "Generation failed";
+        generation.completedAt = new Date();
+        await generation.save();
+        emitToSocket(generation.socketId, toGenerationPayload(generation));
+        return;
+      }
+
+      generation.resultText = aiMessage || "No content generated.";
+
+      // Ask AI for a short name/title for text generations (only on success)
       try {
         const titleResponse = await openai.responses.create({
           model: "gpt-4o-mini",
           input: `Prompt: "${generation.prompt}". Generated result: "${generation.resultText}". Give a concise, 3-6 word title without quotes.`,
         });
+
+        if (await isCancelled(id)) {
+          clearAbortController(id);
+          return;
+        }
 
         const firstTitleOutput = titleResponse.output?.[0];
         let titleText = "";
@@ -302,6 +394,11 @@ async function processGeneration(id: string) {
         n: 1,
       });
 
+      if (await isCancelled(id)) {
+        clearAbortController(id);
+        return;
+      }
+
       const first = response.data?.[0];
       if (first?.b64_json) {
         generation.resultImageUrl = `data:image/png;base64,${first.b64_json}`;
@@ -313,13 +410,26 @@ async function processGeneration(id: string) {
     }
 
     generation.status = "completed";
-  } catch (error: any) {
-    generation.status = "failed";
-    generation.errorMessage =
-      error?.message || "Failed to generate content with OpenAI";
-  } finally {
     generation.completedAt = new Date();
     await generation.save();
     emitToSocket(generation.socketId, toGenerationPayload(generation));
+  } catch (error: any) {
+    if (error?.name === "AbortError" || error?.code === "ABORT_ERR") {
+      clearAbortController(id);
+      return;
+    }
+    const current = await GenerationModel.findById(id);
+    if (current?.status === "cancelled") {
+      clearAbortController(id);
+      return;
+    }
+    generation.status = "failed";
+    generation.errorMessage =
+      error?.message || "Failed to generate content with OpenAI";
+    generation.completedAt = new Date();
+    await generation.save();
+    emitToSocket(generation.socketId, toGenerationPayload(generation));
+  } finally {
+    clearAbortController(id);
   }
 }

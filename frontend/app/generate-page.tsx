@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { Sparkles } from "lucide-react"
+import { Sparkles, XCircle, RotateCcw } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import apiClient from "@/lib/apiClient"
@@ -24,6 +24,8 @@ export function GeneratePage() {
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isEnhancing, setIsEnhancing] = useState(false)
+  const [cancellingId, setCancellingId] = useState<string | null>(null)
+  const [enhancePromptPulse, setEnhancePromptPulse] = useState(false)
 
   const generations = useGenerationStore((s) => s.generations)
   const upsertOne = useGenerationStore((s) => s.upsertOne)
@@ -97,6 +99,31 @@ export function GeneratePage() {
       setError(message)
     } finally {
       setIsSubmitting(false)
+    }
+  }
+
+  const handleRetryFailed = (job: Generation) => {
+    setPrompt(job.prompt)
+    setType(job.type)
+    setImageSize(job.imageSize || "auto")
+    setError(null)
+    setEnhancePromptPulse(true)
+    setTimeout(() => setEnhancePromptPulse(false), 4000)
+  }
+
+  const handleCancelJob = async (jobId: string) => {
+    setCancellingId(jobId)
+    try {
+      const { data } = await apiClient.post<Generation>(
+        `/generations/${jobId}/cancel`
+      )
+      upsertOne(data)
+    } catch (err: any) {
+      const message =
+        err?.response?.data?.message || "Failed to cancel generation."
+      toast.error(message)
+    } finally {
+      setCancellingId(null)
     }
   }
 
@@ -198,7 +225,7 @@ export function GeneratePage() {
                 size="sm"
                 disabled={isEnhancing || !prompt.trim()}
                 onClick={handleEnhancePrompt}
-                className="h-8 gap-1.5 border-purple-600! bg-purple-600/50! text-xs text-white! disabled:opacity-50!"
+                className={`h-8 gap-1.5 border-purple-600! bg-purple-600/50! text-xs text-white! disabled:opacity-50! ${enhancePromptPulse ? "animate-bounce" : ""}`}
               >
                 <Sparkles className="h-3.5 w-3.5" />
                 {isEnhancing ? "Enhancing…" : "Enhance prompt"}
@@ -260,15 +287,50 @@ export function GeneratePage() {
                         ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
                         : job.status === "failed"
                           ? "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300"
-                          : "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
+                          : job.status === "cancelled"
+                            ? "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
+                            : "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
                     }`}
                   >
                     {job.status}
                   </span>
-                  <span className="text-[10px] text-muted-foreground">
-                    {durationLabel}
+                  <span className="flex items-center gap-1.5">
+                    {job.status === "failed" && (
+                      <button
+                        type="button"
+                        onClick={() => handleRetryFailed(job)}
+                        className="flex items-center gap-1 rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                        title="Fill form with this prompt to retry"
+                        aria-label="Retry: fill prompt"
+                      >
+                        <RotateCcw className="h-3 w-3" />
+                        Retry
+                      </button>
+                    )}
+                    {(job.status === "pending" ||
+                      job.status === "generating") && (
+                      <button
+                        type="button"
+                        onClick={() => handleCancelJob(job._id)}
+                        disabled={cancellingId === job._id}
+                        className="flex items-center gap-1 rounded p-1 text-red-600 disabled:opacity-50"
+                        title="Cancel job"
+                        aria-label="Cancel job"
+                      >
+                        <XCircle className="h-3 w-3" />
+                        Cancel
+                      </button>
+                    )}
+                    <span className="w-6 text-end text-[10px] text-muted-foreground">
+                      {durationLabel}
+                    </span>
                   </span>
                 </div>
+                {job.status === "failed" && job.errorMessage && (
+                  <p className="mt-1.5 line-clamp-2 text-[10px] text-muted-foreground">
+                    {job.errorMessage}
+                  </p>
+                )}
               </div>
             )
           })}

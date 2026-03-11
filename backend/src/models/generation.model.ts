@@ -2,7 +2,12 @@ import mongoose, { Document, Schema, Types } from "mongoose";
 
 export type GenerationType = "text" | "image";
 
-export type GenerationStatus = "pending" | "generating" | "completed" | "failed";
+export type GenerationStatus =
+  | "pending"
+  | "generating"
+  | "completed"
+  | "failed"
+  | "cancelled";
 
 export interface GenerationDocument extends Document {
   userId?: Types.ObjectId;
@@ -35,7 +40,7 @@ const generationSchema = new Schema<GenerationDocument>(
     },
     status: {
       type: String,
-      enum: ["pending", "generating", "completed", "failed"],
+      enum: ["pending", "generating", "completed", "failed", "cancelled"],
       required: true,
       default: "pending",
     },
