@@ -213,3 +213,17 @@ Build and run backend and frontend as Node processes (e.g. on a VPS or VM).
 | **Prod (npm)** | `cd backend && npm run build && npm start` | `cd frontend && npm run build && npm start` |
 
 Use one `.env` at repo root for Docker; use `backend/.env` and `frontend/.env.local` (or `.env`) for npm runs. Keep `NEXTAUTH_SECRET` and auth-related URLs in sync between backend and frontend.
+
+---
+
+## Tech choices rationale
+
+- **MongoDB**: Backed by MongoDB Atlas, easy to provision and scale, and works naturally with document-shaped data. It is a good fit for storing flexible generation payloads and large blobs such as base64-encoded images without complex schema migrations.
+- **Socket.IO**: Simple, battle-tested WebSocket abstraction that interoperates well with this stack. It provides bi-directional, event-based communication between server and browser, which is ideal for live job status updates and streaming generation results.
+- **shadcn/ui**: Component system that offers high-quality, accessible primitives with a modern design language. It accelerates UI development by providing ready-made React components that are easy to customize and keep the interface visually consistent.
+- **OpenAI API**: Official SDK is straightforward to integrate and supports both text and image generation through a unified client. This allows us to implement multiple generation types and prompt enhancement with minimal boilerplate.
+- **NextAuth**: High-level authentication library with built-in support for OAuth providers (e.g. Google) and credentials-based login. It handles sessions, tokens, and security concerns out of the box, reducing custom auth code and improving reliability.
+- **Zustand**: Lightweight global state manager with a very small API surface. It is well suited for managing shared UI and real-time data (generations, gallery, history) without the complexity of heavier state management solutions.
+- **Docker & Docker Compose**: Containerization makes it easy to run frontend and backend from a single repository with consistent configuration. Profiles for development and production simplify switching environments and ensure that collaborators can start the full stack with a single command.
+
+---
